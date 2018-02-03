@@ -1,0 +1,19 @@
+{
+    "name": "akuehnis/crud_api_service",
+    "type": "library",
+    "description": "Helper to build simple CRUD APIs",
+    "keywords": ["php"],
+    "homepage": "https://azular.com",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Adran Kuehnis",
+            "email": "webrequest@azular.com"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "Akuehnis\\CrudApiService\\": "src/",
+        }
+    },
+}
