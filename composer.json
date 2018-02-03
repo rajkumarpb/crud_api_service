@@ -5,9 +5,12 @@
     "keywords": ["php"],
     "homepage": "https://azular.com",
     "license": "MIT",
+    "require": {
+        "php": "^5.3.3 || ^7.0"
+    }
     "authors": [
         {
-            "name": "Adran Kuehnis",
+            "name": "Adrian Kuehnis",
             "email": "webrequest@azular.com"
         }
     ],
