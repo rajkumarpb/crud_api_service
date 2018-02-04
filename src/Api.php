@@ -89,15 +89,16 @@ class Api
         // if host is set, use default Mysql Db Connector
         // and the default TableInfoProvider for Mysql DBs
         if (null !== $host){
-            $conn = new \Akuehnis\CrudApiService\DbConnector($host, $user, $pass, $name);
+            $conn = new \Akuehnis\CrudApiService\MySqlDbConnector($host, $user, $pass, $name);
             $this->setDbConnector($conn);
             $this->setTableInfoProvider(new \Akuehnis\CrudApiService\MySqlTableInfoProvider($conn));
         }
         
     }
 
-    public function setDbConnector($db_conn){
-        $this->db_conn = $db_conn;
+    public function setDbConnector($conn){
+        $this->db_conn = $conn;
+        $this->setTableInfoProvider(new \Akuehnis\CrudApiService\MySqlTableInfoProvider($conn));
         return $this;
     }
 

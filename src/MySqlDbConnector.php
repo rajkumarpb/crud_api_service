@@ -10,7 +10,7 @@
 
 namespace Akuehnis\CrudApiService;
 
-class DbConnector
+class MySqlDbConnector
 {
     
     /*
