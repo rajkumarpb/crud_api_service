@@ -16,7 +16,7 @@ Simple Example using a Mysql Database
 ```php
 // index.php
 
-$api = new $api = new \Akuehnis\CrudApiService\Api('localhost', 'database_user', 'user_password', 'name_of_the_database');
+$api = new \Akuehnis\CrudApiService\Api('localhost', 'database_user', 'user_password', 'name_of_the_database');
 $api->setTable('table_name');
 
 $id = isset($_GET['id']) ? $_GET['id'] : null;
@@ -63,7 +63,6 @@ Set the table name where the data are
 ```php
 $api->setTableName('table_name');
 ```
-
 **Read Fields**
 
 Set the names of those fields that should be read 
@@ -150,7 +149,7 @@ $api->setReverseTransformer(function($data){
 });
 ```
 
-** Set Event Listener Function **
+**Set Event Listener Function**
 
 There are several event listeners:
 
@@ -166,4 +165,54 @@ as it is stored in the database.
 $api->setOnAfterDelete(function($data){
     // do something
 });
+```
+
+### Advanced Options
+
+**Set your own Db Connection**
+
+The MySqlDbConnector is the default connector used. However, 
+you may add your own. 
+
+For example, if you are using this service with the 
+Symfony Framework, you may use the dbal connector.
+
+```php
+$api = new \Akuehnis\CrudApiService\Api();
+$api->setDbConnector($this->container->get('database_connector'));
+```
+
+
+**Set your own Table Info service**
+
+This Service must retreive information from the database table.
+By default, the included MySqlTableInfoProvider is loaded.
+
+You may create your own.
+```php
+$api = new \Akuehnis\CrudApiService\Api();
+$conn = new YourOwnDbConnector();
+$tip  = new YourOwnTableInfoProvider($conn);
+$api->setDbConnector($conn)
+    ->setTableInfoProvider($tip)
+    ;
+```
+
+### Advanced Functions
+
+The only parameter that transformer, validation or
+event handler functions get, is the $data. If you need more,
+you can supply it by using the 'use' statement.
+
+Example, if you need the Service Container element in a
+validation function:
+
+```php
+// assuming you are in a Symfony Controller
+
+$container = $this->container;
+$api->setValidator(function($data) use ($container) {
+    // you may access $data and $container
+});
+
 ```
