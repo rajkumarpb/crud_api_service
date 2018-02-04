@@ -1,7 +1,7 @@
 # crud_api_service
 PHP Service for building simple CRUD APIs
 
-# Installation
+## Installation
 
 In the console:
 
@@ -9,11 +9,13 @@ In the console:
 composer require akuehnis/crud_api_service
 ```
 
-# Basic Usage
+## Basic Usage
 
 Simple Example using a Mysql Database
 
-```
+```php
+// index.php
+
 $api = new $api = new \Akuehnis\CrudApiService\Api('localhost', 'database_user', 'user_password', 'name_of_the_database');
 $api->setTable('table_name');
 
