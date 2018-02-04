@@ -13,42 +13,141 @@ namespace Akuehnis\CrudApiService;
 class Api
 {
     
-    public $settings = array(
-        'username'  => '',
-        'password'  => '',
-        'host'      => 'localhost',
-        'database'  => '',
-        'table'     => '',
-        'read'      => '*', // * or []string fieldname
-        'write'     => '*', // * or []string fieldname
-    );
+    /*
+     * db connector. 
+     */
+    public $db_conn = null;
+
+     /*
+     * table info provider
+     */
+    public $table_info_provider = null;
 
     /*
-     * db connection
+     * db table name
      */
-    public $conn = null;
+    public $table;
 
     /*
-     * cache table info
+     * fields that can be read from table (read/read_one)
      */
-    public $table_info_cache = null;
+    public $read_fields = '*';
 
-    public function __construct($settings) {
-        $this->settings = array_merge($this->settings, $settings);
+    /*
+     * fields that can be queried (read)
+     */
+    public $query_fields = '*';
 
-        $name = $this->settings['database'];
-        $host = $this->settings['host'];
-        $user = $this->settings['username'];
-        $pass = $this->settings['password'];
-        $options = array(
-            \PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES utf8',
-        );
+    /*
+     * fields that can be written (create/update)
+     */
+    public $write_fields = '*';
 
-        $dsn = 'mysql:dbname='.$name. ';host='. $host;
-        $this->conn = new \PDO($dsn, $user, $pass, $options);
+    /*
+     * validate callable
+     *
+     */
+    public $validator;
+
+    /*
+     * transform callable
+     *
+     * from database to outside world
+     *
+     */
+    public $transformer;
+
+    /*
+     * reverse transform callable
+     *
+     * from outside world to database
+     *
+     */
+    public $reverse_transformer;
+
+    /*
+     * inserted callable
+     *
+     */
+    public $on_after_insert;
+
+    /*
+     * updated callable
+     *
+     */
+    public $on_after_update;
+    
+    /*
+     * deleted callable
+     *
+     */
+    public $on_after_delete;
+
+
+    public function __construct($host=null, $user=null, $pass=null, $name=null) {
+
+        // if host is set, use default Mysql Db Connector
+        // and the default TableInfoProvider for Mysql DBs
+        if (null !== $host){
+            $conn = new \Akuehnis\CrudApiService\DbConnector($host, $user, $pass, $name);
+            $this->setDbConnector($conn);
+            $this->setTableInfoProvider(new \Akuehnis\CrudApiService\MySqlTableInfoProvider($conn));
+        }
+        
     }
 
-   /* 
+    public function setDbConnector($db_conn){
+        $this->db_conn = $db_conn;
+        return $this;
+    }
+
+    public function setTableInfoProvider($table_info_provider){
+        $this->table_info_provider = $table_info_provider;
+        return $this;
+    }
+
+    public function setTable($table){
+        $this->table = $table;
+        return $this;
+    }
+    public function setReadFields($fields){
+        $this->read_fields = $fields;
+        return $this;
+    }
+    public function setWriteFields($fields){
+        $this->write_fields = $fields;
+        return $this;
+    }
+    public function setQueryFields($fields){
+        $this->query_fields = $fields;
+        return $this;
+    }
+    public function setValidator($function){
+        $this->validator = $function;
+        return $this;
+    }
+    public function setTransformer($function){
+        $this->transformer = $function;
+        return $this;
+    }
+    public function setReverseTransformer($function){
+        $this->reverse_transformer = $function;
+        return $this;
+    }
+    public function setOnAfterInsert($function){
+        $this->on_after_insert = $function;
+        return $this;
+    }
+    public function setOnAfterUpdate($function){
+        $this->on_after_update = $function;
+        return $this;
+    }
+    public function setOnAfterDelete($function){
+        $this->on_after_delete = $function;
+        return $this;
+    }
+
+    /* 
     *
     *  query parameters:
      * order_by string fieldname
@@ -81,7 +180,7 @@ class Api
      */
     public function readAction($query = array(), $get_count = false)
     {
-        $table   = $this->settings['table'];
+        $table   = $this->table;
         // Build the query
         $where = " 1 ";
         $binds = array();
@@ -131,34 +230,38 @@ class Api
                 }
             }
         }
-        $order_by = isset($params['order_by']) ? $params['order_by'] : '';
+        $order_by = isset($query['order_by']) ? $query['order_by'] : '';
         if ('' == $order_by) {
             $order_by = $this->getIdentifier()[0];
         }
         $order_by = preg_replace('/[^A-Za-z0-9\_\-]/', '', $order_by);
-        $order    = isset($params['order']) ? strtoupper($params['order']) :  'ASC';
+        $order    = isset($query['order']) ? strtoupper($query['order']) :  'ASC';
         if (!in_array($order, ['ASC', 'DESC'])){
             $order = 'ASC';
         }
-        $limit  = isset($params['limit']) ? intval($params['limit']) : 1000;
-        $offset  = isset($params['offset']) ? intval($params['offset']) : 0;
+        $limit  = isset($query['limit']) ? intval($query['limit']) : 1000;
+        $offset  = isset($query['offset']) ? intval($query['offset']) : 0;
         if ($get_count) {
             $sql_count = "SELECT COUNT(*) FROM `$table` WHERE $where";
-            return $this->fetchColumn($sql_count, $binds);
+            return array($this->db_conn->fetchColumn($sql_count, $binds), null);
         } else {
-            if (is_array($this->settings['read']) 
-                && 0 < count($this->settings['read'])
+            if (is_array($this->read_fields) 
+                && 0 < count($this->read_fields)
             ){
-                $select = "`".implode("`,`", $this->settings['read'])."`";
+                $select = "`".implode("`,`", $this->read_fields)."`";
             } else {
                 $select = "*";
             }
             $sql = "SELECT $select FROM `$table` WHERE $where 
                 ORDER BY $order_by $order
                 LIMIT $limit OFFSET $offset";
-            $data = $this->fetchAll($sql, $binds);
+            $data = $this->db_conn->fetchAll($sql, $binds);
             for($i=0;$i<count($data);$i++){
-                $data[$i] = $this->readRecord($data[$i]);
+                $data[$i] = $this->pre_transform($data[$i]);
+                if (is_callable($this->transformer)) {
+                    $func = $this->transformer;
+                    $data[$i] = $func($data[$i]);
+                }
             }
             return array($data, null);
         }
@@ -173,24 +276,28 @@ class Api
     {
         $identifier = $this->getIdentifier();
         $binds = array();
-        if (is_array($this->settings['read']) 
-            && 0 < count($this->settings['read'])
+        if (is_array($this->read_fields) 
+            && 0 < count($this->read_fields)
         ){
-            $select = "`".implode("`,`", $this->settings['read'])."`";
+            $select = "`".implode("`,`", $this->read_fields)."`";
         } else {
             $select = "*";
         }
-        $sql = "SELECT $select FROM `{$this->settings['table']}`
-            WHERE ";
+        $sql = "SELECT $select FROM `{$this->table}` WHERE ";
         if (!is_array($id) && 1 == count($identifier)){
             $sql.= " `{$identifier[0]}`=?";
             $binds[] = $id;
         }
-        $data = $this->fetchAll($sql, $binds);
+        $data = $this->db_conn->fetchAll($sql, $binds);
         if (0 == count($data)){
-            return array(null, 'Not found');
+            return array(null, 404);
         } else {
-            return array($this->readRecord($data[0]),null);
+            $data = $this->pre_transform($data[0]);
+            if (is_callable($this->transformer)){
+                $func = $this->transformer;
+                $data = $func($data);
+            }
+            return array($data,null);
         }
     }
     
@@ -199,15 +306,31 @@ class Api
      */
     public function createAction($data)
     {
-        var_dump($data);
-        list($data, $err) = $this->writeRecord($data);
-        if (null !== $err){
-            return array(null, $err);
+        if (is_callable($this->reverse_transformer)) {
+            $func = $this->reverse_transformer;
+            $data = $func($data);
         }
-        if (0 < $this->insert($this->settings['table'], $data)){
-            return $this->readOneAction($this->lastInsertId());
+        $data = $this->post_reverse_transform($data);
+        if (is_callable($this->validator)) {
+            $func = $this->validator;
+            $err = $func($data);
+            if (null !== $err){
+                return array(null, $err);
+            }
+        }
+        if (0 < $this->db_conn->insert($this->table, $data)){
+            list($data, $err) = $this->readOneAction($this->db_conn->lastInsertId());
+            if (null !== $err){
+                return array(null, $err);
+            } else {
+                if (is_callable($this->on_after_insert)){
+                    $func = $this->on_after_insert;
+                    $func($data);
+                }
+                return array($data, null);
+            }
         } else {
-            return array(null, $this->conn->errorInfo()[2]);
+            return array(null, $this->db_conn->errorInfo()[2]);
         }
     }
 
@@ -216,15 +339,33 @@ class Api
      */
     public function updateAction($id, $data)
     {
-        list($data, $err) = $this->writeRecord($data);
-        if (null !== $err){
-            return array(null, $err);
+        if (is_callable($this->reverse_transformer)) {
+            $func = $this->reverse_transformer;
+            $data = $func($data);
+        }
+        $data = $this->post_reverse_transform($data);
+
+        if (is_callable($this->validator)) {
+            $func = $this->validator;
+            $err = $func($data);
+            if (null !== $err){
+                return array(null, $err);
+            }
         }
         $identifier = $this->getIdentifier();
-        if (0 < $this->update($this->settings['table'], $data, array($identifier[0] => $id))) {
-            return $this->readOneAction($id);
+        if (0 < $this->db_conn->update($this->table, $data, array($identifier[0] => $id))) {
+            list($data, $err) = $this->readOneAction($id);
+            if (null !== $err){
+                return array(null, $err);
+            } else {
+                if (is_callable($this->on_after_update)){
+                    $func = $this->on_after_update;
+                    $func($data);
+                }
+                return array($data, null);
+            }
         } else {
-            return array(null, $this->conn->errorInfo()[2]);
+            return array(null, $this->db_conn->errorInfo()[2]);
         }
     }
 
@@ -234,26 +375,42 @@ class Api
     public function deleteAction($id)
     {
         $identifier = $this->getIdentifier();
-        if ($this->delete($this->settings['table'], array(
+        $data = null;
+        if (is_callable($this->on_after_delete)){
+            // Save the data for the on_after_delete event
+            list ($data, $err) = $this->readOneAction($id);
+            if (null !== $err){
+                return array(false, $err);
+            }
+        }
+        if ($this->db_conn->delete($this->table, array(
             $identifier[0] => $id,
         ))){
+            if (is_callable($this->on_after_delete)){
+                $func = $this->on_after_delete;
+                $func($data);
+            }
             return array(true, null);
         } else {
-            return array(false, $this->conn->errorInfo()[2]);
+            return array(false, $this->db_conn->errorInfo()[2]);
         }
     }
 
-    public function writeRecord($record) {
+    /*
+     * applied after custom transformer is applied
+     * immediately before writing to db
+     */
+    public function post_reverse_transform($record) {
         $data = array();
         foreach ($record as $name => $rmt_value) {
-            if (is_array($this->settings['write'])
-                && !in_array($name, $this->settings['write'])
+            if (is_array($this->write_fields)
+                && !in_array($name, $this->write_fields)
             ){
-                return array(null, $name.' is not writable');
+                throw new \Exception($name.' is not writable');
             }
             $field_type = $this->getFieldType($name);
             if (null === $field_type){
-                return array(null, $name.' has no field type');
+                throw new \Exception($name.' has no field type');
             }
             if ('time' == $field_type ) {
                 if (preg_match('/^[0-9]{1,}:[0-9]{2}[:0-9{2}]$/', $rmt_value)){
@@ -301,16 +458,26 @@ class Api
                 $data[$name] = null === $rmt_value ? null : $this->filterString($rmt_value);
             }
         }
-        return array($data, null);
+        return $data;
     }
 
     /*
      * returns array
+     *
+     * applied before custom transformer is applied
+     * immediately after reading from db
      */
-    public function readRecord($record) {
+    public function pre_transform($record) {
         $data = array();
         foreach ($record as $name => $val) {
+            if (is_array($this->read_fields)
+              && !in_array($name, $this->read_fields)){
+                continue;
+            }
             $field_type = $this->getFieldType($name);
+            if (null === $field_type){
+                throw new \Exception($name.' has no field type');
+            }
             if ('time' == $field_type ) {
                 $data[$name] = null === $val ? null : $val;
             }
@@ -326,7 +493,7 @@ class Api
             elseif ('string' == $field_type) {
                 $data[$name] = $val;
             }
-            elseif ('decimal' == $field_type) {
+            elseif ('float' == $field_type) {
                 $data[$name] = floatval($val);
             }
             elseif ('integer' == $field_type) {
@@ -358,44 +525,39 @@ class Api
         return str_replace($f,' ',$value);
     }
 
-    public function getTableInfo(){
-        if (null === $this->table_info_cache) {
-            $sql = "SHOW FIELDS FROM `{$this->settings['table']}`"; 
-            $sth = $this->conn->prepare($sql);
-            $sth->execute(array());
-            $this->table_info_cache = $sth->fetchAll(\PDO::FETCH_ASSOC);
-        }
-        return $this->table_info_cache;
-    }
+    
 
     public function getFieldType($name){
         foreach ($this->getTableInfo() as $row){
-            if ($row['Field'] == $name) {
-                if (0 === strpos($row['Type'], 'tinyint(1)')){
+            if ($row['name'] == $name) {
+                if (0 === strpos($row['type'], 'tinyint(1)')){
                     return 'boolean';
                 }
-                if (false !== strpos($row['Type'], 'int')){
+                if (false !== strpos($row['type'], 'int')){
                     return 'integer';
                 }
-                if (false !== strpos($row['Type'], 'decimal')){
-                    return 'decimal';
+                if (false !== strpos($row['type'], 'decimal')){
+                    return 'float';
                 }
-                if (false !== strpos($row['Type'], 'datetime')){
+                if (false !== strpos($row['type'], 'float')){
+                    return 'float';
+                }
+                if (false !== strpos($row['type'], 'datetime')){
                     return 'datetime';
                 }
-                if (false !== strpos($row['Type'], 'date')){
+                if (false !== strpos($row['type'], 'date')){
                     return 'date';
                 }
-                if (false !== strpos($row['Type'], 'time')){
+                if (false !== strpos($row['type'], 'time')){
                     return 'time';
                 }
-                if (false !== strpos($row['Type'], 'char')){
+                if (false !== strpos($row['type'], 'char')){
                     return 'string';
                 }
-                if (false !== strpos($row['Type'], 'text')){
+                if (false !== strpos($row['type'], 'text')){
                     return 'text';
                 }
-                if (false !== strpos($row['Type'], 'blob')){
+                if (false !== strpos($row['type'], 'blob')){
                     return 'blob';
                 }
                 return 'undefined';
@@ -409,79 +571,14 @@ class Api
      * returns []primary
      */
     public function getIdentifier(){
-        $primaries = array();
-        foreach ($this->getTableInfo() as $row){
-            if (isset($row['Key']) && 'PRI' == $row['Key']) {
-                $primaries[] = $row['Field'];
-            }
-        }
-        return $primaries;
+        return $this->table_info_provider->getIdentifier($this->table);
     }
-
-    public function fetchColumn($sql, $binds = array()) {
-        $sth = $this->conn->prepare($sql);
-        $sth->execute($binds);
-        return $sth->fetchColumn();
-    }
-
-    public function fetchAll($sql, $binds = array()){
-        $sth = $this->conn->prepare($sql);
-        $sth->execute($binds);
-        return $sth->fetchAll(\PDO::FETCH_ASSOC);
-    }
-
-    public function insert($table, $data){
-        $sql = "INSERT INTO `$table` (`".
-            implode('`,`', array_keys($data))."`)
-            VALUES (". implode(',', array_fill(0, count($data), '?')).")";
-
-        $sth = $this->conn->prepare($sql);
-        if( false === $sth ) {
-            return false;
-        }
-        return $sth->execute(array_values($data));
-
-    }
-    public function update($table, $data, $where){
-        $params = array();
-        $sep = ' SET ';
-        $sql = "UPDATE `$table`";
-        foreach($data as $key=>$val){
-            $sql .= $sep.$key.'=?';
-            $binds[] = $val;
-            $sep = ',';
-        }
-        $sep = ' WHERE ';
-        foreach($where as $key=>$val){
-            $sql.= $sep.$key."=?";
-            $binds[] = $val;
-            $sep = " AND ";
-        }
-        $sth = $this->conn->prepare($sql);
-        if( false === $sth ) {
-            return false;
-        }
-        return $sth->execute($binds);
-    }
-
-    public function lastInsertId(){
-        return $this->conn->lastInsertId();
-    }
-
-    public function delete($table, $where){
-        $sql = "DELETE FROM $table WHERE ";
-        $sep = '';
-        $binds = array();
-        foreach($where as $key=>$val){
-            $sql.= $sep.$key.'=?';
-            $sep = ' AND ';
-            $binds[] = $val;
-        }
-        $sth = $this->conn->prepare($sql);
-        if( false === $sth ) {
-            return false;
-        }
-        return $sth->execute($binds);
+   
+    /* 
+     * returns []primary
+     */
+    public function getTableInfo(){
+        return $this->table_info_provider->getTableInfo($this->table);
     }
 
 }
