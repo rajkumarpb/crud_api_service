@@ -226,6 +226,10 @@ class Api
                         $b = explode(',', $val);
                         $where.= " AND `$field` IS NOT NULL AND  `$field` IN ('".implode("','", $b).")";
                         break;
+                     case 'not_in':
+                        $b = explode(',', $val);
+                        $where.= " AND `$field` NOT IN ('".implode("','", $b)."')";
+                        break;
                     default:
                         continue;
                 }
@@ -440,11 +444,11 @@ class Api
             elseif ('string' == $field_type) {
                 $data[$name] = null === $rmt_value ? null : $this->filterString($rmt_value);
             }
-            elseif ('decimal' == $field_type) {
-                $data[$name] = null === $rmt_value ? null : floatval($rmt_value);
+            elseif ('float' == $field_type) {
+                $data[$name] = null === $rmt_value || '' == $rmt_value ? null : floatval($rmt_value);
             }
             elseif ('integer' == $field_type) {
-                $data[$name] = null === $rmt_value ? null : intval($rmt_value);
+                $data[$name] = null === $rmt_value || '' == $rmt_value ? null : intval($rmt_value);
             }
             elseif ('boolean' == $field_type) {
                 if ('false' === $rmt_value || false === $rmt_value) {
@@ -495,7 +499,7 @@ class Api
                 $data[$name] = $val;
             }
             elseif ('float' == $field_type) {
-                $data[$name] = floatval($val);
+                $data[$name] = null === $val ? null : floatval($val);
             }
             elseif ('integer' == $field_type) {
                 $data[$name] = null === $val ? null : intval($val);
