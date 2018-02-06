@@ -423,6 +423,7 @@ class Api
             $field_type = $this->getFieldType($name);
             if (null === $field_type){
                 throw new \Exception($name.' has no field type');
+                return;
             }
             if ('time' == $field_type ) {
                 if (preg_match('/^[0-9]{1,}:[0-9]{2}[:0-9{2}]$/', $rmt_value)){
@@ -489,6 +490,7 @@ class Api
             $field_type = $this->getFieldType($name);
             if (null === $field_type){
                 throw new \Exception($name.' has no field type');
+                return;
             }
             if ('time' == $field_type ) {
                 $data[$name] = null === $val ? null : $val;
