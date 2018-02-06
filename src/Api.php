@@ -228,7 +228,7 @@ class Api
                         break;
                      case 'not_in':
                         $b = explode(',', $val);
-                        $where.= " AND `$field` NOT IN ('".implode("','", $b)."')";
+                        $where.= " AND (`$field` IS NULL OR `$field` NOT IN ('".implode("','", $b)."'))";
                         break;
                     default:
                         continue;
@@ -312,30 +312,34 @@ class Api
     public function createAction($data)
     {
         if (is_callable($this->reverse_transformer)) {
-            $func = $this->reverse_transformer;
-            $data = $func($data);
+            try {
+                $func = $this->reverse_transformer;
+                $data = $func($data);
+            } catch (\Exception $e){
+                return array(null, $e->getMessage());
+            }
         }
         $data = $this->post_reverse_transform($data);
         if (is_callable($this->validator)) {
             $func = $this->validator;
             $err = $func($data);
-            if (null !== $err){
+            if (!in_array($err, [null,true])) {
                 return array(null, $err);
             }
         }
-        if (0 < $this->db_conn->insert($this->table, $data)){
+        try {
+            $this->db_conn->insert($this->table, $data);
             list($data, $err) = $this->readOneAction($this->db_conn->lastInsertId());
             if (null !== $err){
                 return array(null, $err);
-            } else {
-                if (is_callable($this->on_after_insert)){
-                    $func = $this->on_after_insert;
-                    $func($data);
-                }
-                return array($data, null);
             }
-        } else {
-            return array(null, $this->db_conn->errorInfo()[2]);
+            if (is_callable($this->on_after_insert)){
+                $func = $this->on_after_insert;
+                $func($data);
+            }
+            return array($data, null);
+        } catch (\Exception $e) {
+            return array(null, $e->getMessage());
         }
     }
 
@@ -344,35 +348,36 @@ class Api
      */
     public function updateAction($id, $data)
     {
-
         if (is_callable($this->reverse_transformer)) {
-            $func = $this->reverse_transformer;
-            $data = $func($data);
+            try {
+                $func = $this->reverse_transformer;
+                $data = $func($data);
+            } catch (\Exception $e) {
+                return array(null, $e->getMessage());
+            }
         }
         $data = $this->post_reverse_transform($data);
-
         if (is_callable($this->validator)) {
             $func = $this->validator;
             $err = $func($data);
-            if (null !== $err){
+            if (!in_array($err, [null,true])) {
                 return array(null, $err);
             }
         }
         $identifier = $this->getIdentifier();
-        $cnt = $this->db_conn->update($this->table, $data, array($identifier[0] => $id));
-        if (0 < $cnt) {
+        try {
+            $this->db_conn->update($this->table, $data, array($identifier[0] => $id));
             list($new_data, $err) = $this->readOneAction($id);
             if (null !== $err){
                 return array(null, $err);
-            } else {
-                if (is_callable($this->on_after_update)){
-                    $func = $this->on_after_update;
-                    $func($new_data);
-                }
-                return array($new_data, null);
+            } 
+            if (is_callable($this->on_after_update)){
+                $func = $this->on_after_update;
+                $func($new_data);
             }
-        } else {
-            return array(null, $this->db_conn->errorInfo()[2]);
+            return array($new_data, null);
+        } catch (\Exception $e) {
+            return array(null, $e->getMessage());
         }
     }
 
@@ -390,16 +395,16 @@ class Api
                 return array(false, $err);
             }
         }
-        if ($this->db_conn->delete($this->table, array(
-            $identifier[0] => $id,
-        ))){
+        try {
+            $this->db_conn->delete($this->table, array(
+                $identifier[0] => $id,));
             if (is_callable($this->on_after_delete)){
                 $func = $this->on_after_delete;
                 $func($data);
             }
             return array(true, null);
-        } else {
-            return array(false, $this->db_conn->errorInfo()[2]);
+        } catch (\Exception $e){
+            return array(false, $e->getMessage());
         }
     }
 
@@ -447,10 +452,10 @@ class Api
                 $data[$name] = null === $rmt_value ? null : $this->filterString($rmt_value);
             }
             elseif ('float' == $field_type) {
-                $data[$name] = null === $rmt_value || '' == $rmt_value ? null : floatval($rmt_value);
+                $data[$name] = null === $rmt_value || '' === $rmt_value ? null : floatval($rmt_value);
             }
             elseif ('integer' == $field_type) {
-                $data[$name] = null === $rmt_value || '' == $rmt_value ? null : intval($rmt_value);
+                $data[$name] = null === $rmt_value || '' === $rmt_value ? null : intval($rmt_value);
             }
             elseif ('boolean' == $field_type) {
                 if ('false' === $rmt_value || false === $rmt_value) {

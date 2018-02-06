@@ -22,29 +22,27 @@ class MySqlDbConnector
     public function __construct($host, $user, $pass, $name) {
         $options = array(
             \PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES utf8',
+            \PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION,
         );
 
         $dsn = 'mysql:dbname='.$name. ';host='. $host;
         $this->conn = new \PDO($dsn, $user, $pass, $options);
     }
 
-    /*
-    public function getTableInfo($table){
-        $sql = "SHOW FIELDS FROM `{$table}`"; 
-        $sth = $this->conn->prepare($sql);
-        $sth->execute(array());
-        return $sth->fetchAll(\PDO::FETCH_ASSOC);
-    }
-     */
-
     public function fetchColumn($sql, $binds = array()) {
         $sth = $this->conn->prepare($sql);
+        if( false === $sth ) {
+            throw new \Exception($this->conn->errorInfo()[2]);
+        }
         $sth->execute($binds);
         return $sth->fetchColumn();
     }
 
     public function fetchAll($sql, $binds = array()){
         $sth = $this->conn->prepare($sql);
+        if( false === $sth ) {
+            throw new \Exception($this->conn->errorInfo()[2]);
+        }
         $sth->execute($binds);
         return $sth->fetchAll(\PDO::FETCH_ASSOC);
     }
@@ -56,9 +54,13 @@ class MySqlDbConnector
 
         $sth = $this->conn->prepare($sql);
         if( false === $sth ) {
-            return false;
+            throw new \Exception($this->conn->errorInfo()[2]);
         }
-        return $sth->execute(array_values($data));
+        $res = $sth->execute(array_values($data));
+        if (false === $res){
+            throw new \Exception($sth->errorInfo()[2]);
+        }
+        return $res;
 
     }
     public function update($table, $data, $where){
@@ -78,16 +80,17 @@ class MySqlDbConnector
         }
         $sth = $this->conn->prepare($sql);
         if( false === $sth ) {
-            return false;
+            throw new \Exception($this->conn->errorInfo()[2]);
         }
-        return $sth->execute($binds);
+        $res = $sth->execute($binds);
+        if (false === $res){
+            throw new \Exception($sth->errorInfo()[2]);
+        }
+        return $res;
     }
 
     public function lastInsertId(){
         return $this->conn->lastInsertId();
-    }
-    public function errorInfo(){
-        return $this->conn->errorInfo();
     }
 
     public function delete($table, $where){
@@ -101,7 +104,7 @@ class MySqlDbConnector
         }
         $sth = $this->conn->prepare($sql);
         if( false === $sth ) {
-            return false;
+            throw new \Exception($this->conn->errorInfo()[2]);
         }
         return $sth->execute($binds);
     }
