@@ -344,6 +344,7 @@ class Api
      */
     public function updateAction($id, $data)
     {
+
         if (is_callable($this->reverse_transformer)) {
             $func = $this->reverse_transformer;
             $data = $func($data);
@@ -358,16 +359,17 @@ class Api
             }
         }
         $identifier = $this->getIdentifier();
-        if (0 < $this->db_conn->update($this->table, $data, array($identifier[0] => $id))) {
-            list($data, $err) = $this->readOneAction($id);
+        $cnt = $this->db_conn->update($this->table, $data, array($identifier[0] => $id));
+        if (0 < $cnt) {
+            list($new_data, $err) = $this->readOneAction($id);
             if (null !== $err){
                 return array(null, $err);
             } else {
                 if (is_callable($this->on_after_update)){
                     $func = $this->on_after_update;
-                    $func($data);
+                    $func($new_data);
                 }
-                return array($data, null);
+                return array($new_data, null);
             }
         } else {
             return array(null, $this->db_conn->errorInfo()[2]);

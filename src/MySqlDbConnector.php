@@ -86,6 +86,9 @@ class MySqlDbConnector
     public function lastInsertId(){
         return $this->conn->lastInsertId();
     }
+    public function errorInfo(){
+        return $this->conn->errorInfo();
+    }
 
     public function delete($table, $where){
         $sql = "DELETE FROM $table WHERE ";
