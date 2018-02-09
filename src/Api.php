@@ -321,7 +321,11 @@ class Api
         }
         // post_reverse_transform required before validation 
         // to get a normalization of the values
-        $data = $this->post_reverse_transform($data); 
+        try {
+            $data = $this->post_reverse_transform($data); 
+        } catch (\Exception $e) {
+            return array(null, $e->getMessage());
+        }
         if (is_callable($this->validator)) {
             $func = $this->validator;
             $err = $func($data);
@@ -360,7 +364,11 @@ class Api
         }
         // post_reverse_transform required before validation 
         // to get a normalization of the values
-        $data = $this->post_reverse_transform($data); 
+        try {
+            $data = $this->post_reverse_transform($data); 
+        } catch (\Exception $e) {
+            return array(null, $e->getMessage());
+        }
         if (is_callable($this->validator)) {
             $func = $this->validator;
             $err = $func($data);
