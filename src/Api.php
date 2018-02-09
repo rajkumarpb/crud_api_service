@@ -319,11 +319,13 @@ class Api
                 return array(null, $e->getMessage());
             }
         }
-        $data = $this->post_reverse_transform($data);
+        // post_reverse_transform required before validation 
+        // to get a normalization of the values
+        $data = $this->post_reverse_transform($data); 
         if (is_callable($this->validator)) {
             $func = $this->validator;
             $err = $func($data);
-            if (!in_array($err, [null,true])) {
+            if (!in_array($err, [null, true], true)){
                 return array(null, $err);
             }
         }
@@ -356,13 +358,15 @@ class Api
                 return array(null, $e->getMessage());
             }
         }
-        $data = $this->post_reverse_transform($data);
+        // post_reverse_transform required before validation 
+        // to get a normalization of the values
+        $data = $this->post_reverse_transform($data); 
         if (is_callable($this->validator)) {
             $func = $this->validator;
             $err = $func($data);
-            if (!in_array($err, [null,true])) {
+            if (!in_array($err, [null, true], true)){
                 return array(null, $err);
-            }
+            } 
         }
         $identifier = $this->getIdentifier();
         try {
@@ -428,21 +432,21 @@ class Api
             if ('time' == $field_type ) {
                 if (preg_match('/^[0-9]{1,}:[0-9]{2}[:0-9{2}]$/', $rmt_value)){
                     $data[$name] = $rmt_value;
-                } elseif (null === $rmt_value){
+                } elseif (empty($rmt_value)){
                     $data[$name] = null;
                 }
             }
             elseif ('datetime' == $field_type) {
                 if (preg_match('/^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}$/', $rmt_value)){
                     $data[$name] = $rmt_value;
-                } elseif (null === $rmt_value) {
+                } elseif (empty($rmt_value)) {
                     $data[$name] = null;
                 }
             }
             elseif ('date' == $field_type) {
                 if (preg_match('/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/', $rmt_value)){
                     $data[$name] = $rmt_value;
-                } elseif (null === $rmt_value) {
+                } elseif (empty($rmt_value)) {
                     $data[$name] = null;
                 }
             }
@@ -453,10 +457,10 @@ class Api
                 $data[$name] = null === $rmt_value ? null : $this->filterString($rmt_value);
             }
             elseif ('float' == $field_type) {
-                $data[$name] = null === $rmt_value || '' === $rmt_value ? null : floatval($rmt_value);
+                $data[$name] = in_array($rmt_value, [null,'',false], true) ? null : floatval($rmt_value);
             }
             elseif ('integer' == $field_type) {
-                $data[$name] = null === $rmt_value || '' === $rmt_value ? null : intval($rmt_value);
+                $data[$name] = in_array($rmt_value, [null,'',false], true) ? null : intval($rmt_value);
             }
             elseif ('boolean' == $field_type) {
                 if ('false' === $rmt_value || false === $rmt_value) {
