@@ -495,10 +495,11 @@ class Api
     public function pre_transform($record) {
         $data = array();
         foreach ($record as $name => $val) {
-            if (is_array($this->read_fields)
-              && !in_array($name, $this->read_fields)){
+            if (!('*' == $this->read_fields
+                || in_array($name, $this->read_fields))
+            ){
                 continue;
-            }
+            } 
             $field_type = $this->getFieldType($name);
             if (null === $field_type){
                 throw new \Exception($name.' has no field type');

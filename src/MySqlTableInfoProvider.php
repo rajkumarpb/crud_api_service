@@ -18,26 +18,31 @@ class MySqlTableInfoProvider
      */
     public $conn = null;
 
+    public $cache = array();
+
 
     public function __construct($db_connector) {
         $this->conn = $db_connector;
     }
 
     public function getTableInfo($table){
-        $sql = "SHOW FIELDS FROM `{$table}`"; 
-        $arr = $this->conn->fetchAll($sql);
-        $data = array();
-        foreach ($arr as $row){
-            $data[] = array(
-                'name' => $row['Field'],
-                'type' => $row['Type'],
-                'nullable' => 'Yes' == $row['Null'],
-                'default' => $row['Default'],
-                'extra' => $row['Extra'],
-                'identifier' => 'PRI' == $row['Key'],
-            );
+        if (!isset($this->cache[$table])){
+            $sql = "SHOW FIELDS FROM `{$table}`"; 
+            $arr = $this->conn->fetchAll($sql);
+            $data = array();
+            foreach ($arr as $row){
+                $data[] = array(
+                    'name' => $row['Field'],
+                    'type' => $row['Type'],
+                    'nullable' => 'Yes' == $row['Null'],
+                    'default' => $row['Default'],
+                    'extra' => $row['Extra'],
+                    'identifier' => 'PRI' == $row['Key'],
+                );
+            }
+            $this->cache[$table] = $data;
         }
-        return $data;
+        return $this->cache[$table];
     }
 
     public function getIdentifier($table){
