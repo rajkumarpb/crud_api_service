@@ -9,6 +9,8 @@
  */
 
 namespace Akuehnis\CrudApiService;
+use  Akuehnis\CrudApiService\MySqlTableInfoProvider;
+use  Akuehnis\CrudApiService\MySqlDbConnector;
 
 class Api
 {
@@ -89,16 +91,16 @@ class Api
         // if host is set, use default Mysql Db Connector
         // and the default TableInfoProvider for Mysql DBs
         if (null !== $host){
-            $conn = new \Akuehnis\CrudApiService\MySqlDbConnector($host, $user, $pass, $name);
+            $conn = new MySqlDbConnector($host, $user, $pass, $name);
             $this->setDbConnector($conn);
-            $this->setTableInfoProvider(new \Akuehnis\CrudApiService\MySqlTableInfoProvider($conn));
+            $this->setTableInfoProvider(new MySqlTableInfoProvider($conn));
         }
         
     }
 
     public function setDbConnector($conn){
         $this->db_conn = $conn;
-        $this->setTableInfoProvider(new \Akuehnis\CrudApiService\MySqlTableInfoProvider($conn));
+        $this->setTableInfoProvider(new MySqlTableInfoProvider($conn));
         return $this;
     }
 
@@ -181,8 +183,10 @@ class Api
      */
     public function readAction($query = array(), $get_count = false)
     {
+        if (null === $this->table){
+            return array(null, 'table undefined');
+        }
         $table   = $this->table;
-        // Build the query
         $where = " 1 ";
         $binds = array();
 
@@ -194,6 +198,16 @@ class Api
             $a = explode('__', $key);
             if (1 == count($a)){
                 $where.= " AND `$key`=?";
+                $field_type = $this->getFieldType($key);
+                if ('boolean' == $this->getFieldType($key)) {
+                    if ('true' == $val){
+                        $binds[] = 1;
+                    } elseif ('false' == $val) {
+                        $binds[] = 0;
+                    } else {
+                        $binds[] = $val;
+                    }
+                }
                 $binds[] = $val;
             } else {
                 $field = $a[0];
@@ -279,6 +293,9 @@ class Api
      */
     public function readOneAction($id)
     {
+        if (null === $this->table){
+            return array(null, 'table undefined');
+        }
         $identifier = $this->getIdentifier();
         $binds = array();
         if (is_array($this->read_fields) 
@@ -311,6 +328,9 @@ class Api
      */
     public function createAction($data)
     {
+        if (null === $this->table){
+            return array(null, 'table undefined');
+        }
         if (is_callable($this->reverse_transformer)) {
             try {
                 $func = $this->reverse_transformer;
@@ -354,6 +374,9 @@ class Api
      */
     public function updateAction($id, $data)
     {
+        if (null === $this->table){
+            return array(null, 'table undefined');
+        }
         if (is_callable($this->reverse_transformer)) {
             try {
                 $func = $this->reverse_transformer;
@@ -398,6 +421,9 @@ class Api
      */
     public function deleteAction($id)
     {
+        if (null === $this->table){
+            return array(null, 'table undefined');
+        }
         $identifier = $this->getIdentifier();
         $data = null;
         if (is_callable($this->on_after_delete)){
