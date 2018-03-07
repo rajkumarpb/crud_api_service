@@ -244,8 +244,9 @@ class Api
                     } else {
                         $binds[] = $val;
                     }
+                } else {
+                    $binds[] = $val;
                 }
-                $binds[] = $val;
             } else {
                 $field = str_replace('.', '`.`', $a[0]);
                 switch ($a[1]){
