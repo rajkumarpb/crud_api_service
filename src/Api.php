@@ -287,7 +287,7 @@ class Api
                         break;
                      case 'in':
                         $b = explode(',', $val);
-                        $where.= " AND `$field` IS NOT NULL AND  `$field` IN ('".implode("','", $b).")";
+                        $where.= " AND `$field` IS NOT NULL AND  `$field` IN ('".implode("','", $b)."')";
                         break;
                      case 'not_in':
                         $b = explode(',', $val);
