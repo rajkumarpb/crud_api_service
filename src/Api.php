@@ -9,7 +9,6 @@
  */
 
 namespace Akuehnis\CrudApiService;
-use  Akuehnis\CrudApiService\MySqlTableInfoProvider;
 use  Akuehnis\CrudApiService\MySqlDbConnector;
 
 class Api
@@ -19,11 +18,6 @@ class Api
      * db connector. 
      */
     public $db_conn = null;
-
-     /*
-     * table info provider
-     */
-    public $table_info_provider = null;
 
     /*
      * db table name
@@ -100,23 +94,15 @@ class Api
     public function __construct($host=null, $user=null, $pass=null, $name=null) {
 
         // if host is set, use default Mysql Db Connector
-        // and the default TableInfoProvider for Mysql DBs
         if (null !== $host){
             $conn = new MySqlDbConnector($host, $user, $pass, $name);
             $this->setDbConnector($conn);
-            $this->setTableInfoProvider(new MySqlTableInfoProvider($conn));
         }
         
     }
 
     public function setDbConnector($conn){
         $this->db_conn = $conn;
-        $this->setTableInfoProvider(new MySqlTableInfoProvider($conn));
-        return $this;
-    }
-
-    public function setTableInfoProvider($table_info_provider){
-        $this->table_info_provider = $table_info_provider;
         return $this;
     }
 
@@ -427,7 +413,7 @@ class Api
         }
         if (is_callable($this->validator)) {
             $func = $this->validator;
-            $err = $func($data);
+            $err = $func($data, null);
             if (!in_array($err, [null, true], true)){
                 return array(null, $err);
             }
@@ -473,7 +459,7 @@ class Api
         }
         if (is_callable($this->validator)) {
             $func = $this->validator;
-            $err = $func($data);
+            $err = $func($data, $id);
             if (!in_array($err, [null, true], true)){
                 return array(null, $err);
             } 

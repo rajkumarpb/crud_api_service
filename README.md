@@ -134,10 +134,12 @@ $api->addField([
 Set a validator function applied to the data 
 just before they are inserted or updated.
 
-A validator function shall return NULL or an error message
+A validator function shall return NULL or an error message.
+
+For create actions $id is NULL.
 
 ```php
-$api->setValidato(function($data){
+$api->setValidator(function($data, $id){
     if ($condition) {
         return null; // ever
     } else {
