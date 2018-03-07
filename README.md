@@ -101,8 +101,10 @@ $api->setTableName('table_name');
 
 **Define fields**
 
-Default: all fields are available, all fields can be read and
-written (create and update), none is required;
+Default: 
+* all fields can be read
+* no field can be written (create and update)
+* none is required
 
 ```php
 $api->addField([
