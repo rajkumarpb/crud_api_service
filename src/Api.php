@@ -9,7 +9,6 @@
  */
 
 namespace Akuehnis\CrudApiService;
-use  Akuehnis\CrudApiService\MySqlTableInfoProvider;
 use  Akuehnis\CrudApiService\MySqlDbConnector;
 
 class Api
@@ -20,30 +19,36 @@ class Api
      */
     public $db_conn = null;
 
-     /*
-     * table info provider
-     */
-    public $table_info_provider = null;
-
     /*
      * db table name
      */
     public $table;
 
     /*
-     * fields that can be read from table (read/read_one)
+     * table left joins
+     *
+     * a join is an array(table: 'tablename', on: 'on-condition')
      */
-    public $read_fields = '*';
+    public $left_join = [];
 
     /*
-     * fields that can be queried (read)
+     * fields this api is aware of
+     * if '*' (default) all fields can be read and written
+     *
+     * use function addField([]) to add a field
      */
-    public $query_fields = '*';
+    public $fields = '*';
 
     /*
-     * fields that can be written (create/update)
+     * array of primary keys
      */
-    public $write_fields = '*';
+    public $primary = [];
+    
+    /*
+     * allow row deletion
+     *
+     */
+    public $allow_delete = true;
 
     /*
      * validate callable
@@ -89,23 +94,15 @@ class Api
     public function __construct($host=null, $user=null, $pass=null, $name=null) {
 
         // if host is set, use default Mysql Db Connector
-        // and the default TableInfoProvider for Mysql DBs
         if (null !== $host){
             $conn = new MySqlDbConnector($host, $user, $pass, $name);
             $this->setDbConnector($conn);
-            $this->setTableInfoProvider(new MySqlTableInfoProvider($conn));
         }
         
     }
 
     public function setDbConnector($conn){
         $this->db_conn = $conn;
-        $this->setTableInfoProvider(new MySqlTableInfoProvider($conn));
-        return $this;
-    }
-
-    public function setTableInfoProvider($table_info_provider){
-        $this->table_info_provider = $table_info_provider;
         return $this;
     }
 
@@ -113,18 +110,55 @@ class Api
         $this->table = $table;
         return $this;
     }
-    public function setReadFields($fields){
-        $this->read_fields = $fields;
+    public function leftJoin($join){
+        $this->left_join[] = $join;
         return $this;
     }
-    public function setWriteFields($fields){
-        $this->write_fields = $fields;
+    public function setAllowDelete($value){
+        $this->allow_delete = $value;
         return $this;
     }
-    public function setQueryFields($fields){
-        $this->query_fields = $fields;
+
+    /* can be a string (default values apply)
+     * or {
+     * name: 
+     * alias:
+     * type:
+     * read: true|false
+     * create: true|false
+     * update: true|false
+     * type: integer|boolean|text|string|date|datetime|time
+     * }
+     */ 
+    public function addField($field){
+        if (!is_array($this->fields)){
+            $this->fields = [];
+        }
+        $default = array(
+            'field' => '',
+            'alias' => '',
+            'type' => 'string',
+            'read' => true,
+            'create' => true,
+            'create_required' => false,
+            'update' => true,
+            'update_required' => false,
+        );
+        if (!is_array($field)){
+            $default['field'] = $field;
+            $default['alias'] = $field;
+        } else {
+            foreach ($field as $key => $val) {
+                $default[$key] = $val;
+                if ('field' == $key && !isset($field['alias'])){
+                    $default['alias'] = $val;
+                }
+            }
+        }
+        $this->fields[] = $default;
         return $this;
     }
+
     public function setValidator($function){
         $this->validator = $function;
         return $this;
@@ -187,6 +221,10 @@ class Api
             return array(null, 'table undefined');
         }
         $table   = $this->table;
+        foreach ($this->left_join as $left_join){
+            $table.= ' LEFT JOIN '.$left_join['table'].' ON '.$left_join['on'];
+        }
+
         $where = " 1 ";
         $binds = array();
 
@@ -198,7 +236,6 @@ class Api
             $a = explode('__', $key);
             if (1 == count($a)){
                 $where.= " AND `$key`=?";
-                $field_type = $this->getFieldType($key);
                 if ('boolean' == $this->getFieldType($key)) {
                     if ('true' == $val){
                         $binds[] = 1;
@@ -210,11 +247,18 @@ class Api
                 }
                 $binds[] = $val;
             } else {
-                $field = $a[0];
+                $field = str_replace('.', '`.`', $a[0]);
                 switch ($a[1]){
                     case 'contains':
-                        $where.= " AND `$field` IS NOT NULL AND `$field` LIKE '?'";
-                        $binds[] = '%'.$val.'%';
+                        if (is_array($val)){
+                            foreach ($val as $v) {
+                                $where.= " AND `$field` IS NOT NULL AND `$field` LIKE ?";
+                                $binds[] = '%'.$v.'%';
+                            }
+                        } else {
+                            $where.= " AND `$field` IS NOT NULL AND `$field` LIKE ?";
+                            $binds[] = '%'.$val.'%';
+                        }
                         break;
                     case 'lt':
                         $where.= " AND `$field` IS NOT NULL AND `$field` < ?";
@@ -235,6 +279,10 @@ class Api
                     case 'startswith':
                         $where.= " AND `$field` IS NOT NULL AND `$field` LIKE '?'";
                         $binds[] = '%'.$val;
+                        break;
+                    case 'endswith':
+                        $where.= " AND `$field` IS NOT NULL AND `$field` LIKE '?'";
+                        $binds[] = $val.'%';
                         break;
                      case 'in':
                         $b = explode(',', $val);
@@ -261,17 +309,23 @@ class Api
         $limit  = isset($query['limit']) ? intval($query['limit']) : 1000;
         $offset  = isset($query['offset']) ? intval($query['offset']) : 0;
         if ($get_count) {
-            $sql_count = "SELECT COUNT(*) FROM `$table` WHERE $where";
+            $sql_count = "SELECT COUNT(*) FROM $table WHERE $where";
             return array($this->db_conn->fetchColumn($sql_count, $binds), null);
         } else {
-            if (is_array($this->read_fields) 
-                && 0 < count($this->read_fields)
+            if (is_array($this->fields) 
+                && 0 < count($this->fields)
             ){
-                $select = "`".implode("`,`", $this->read_fields)."`";
+                $select = '';
+                $sep = '';
+                foreach ($this->fields as $read_field){
+                    $select.= $sep."`".str_replace('.', '`.`', $read_field['field'])."`".
+                        " AS `".$read_field['alias']."`";
+                    $sep = ',';
+                }
             } else {
                 $select = "*";
             }
-            $sql = "SELECT $select FROM `$table` WHERE $where 
+            $sql = "SELECT $select FROM $table WHERE $where 
                 ORDER BY $order_by $order
                 LIMIT $limit OFFSET $offset";
             $data = $this->db_conn->fetchAll($sql, $binds);
@@ -296,16 +350,27 @@ class Api
         if (null === $this->table){
             return array(null, 'table undefined');
         }
+        $table   = $this->table;
+        foreach ($this->left_join as $left_join){
+            $table.= ' LEFT JOIN '.$left_join['table'].' ON '.$left_join['on'];
+        }
         $identifier = $this->getIdentifier();
         $binds = array();
-        if (is_array($this->read_fields) 
-            && 0 < count($this->read_fields)
+        if (is_array($this->fields) 
+            && 0 < count($this->fields)
         ){
-            $select = "`".implode("`,`", $this->read_fields)."`";
+            $select = '';
+            $sep = '';
+            foreach ($this->fields as $read_field){
+                $select.= $sep.
+                    "`".str_replace('.', '`.`', $read_field['field'])."`".
+                    " AS `".$read_field['alias']."`";
+                $sep = ',';
+            }
         } else {
             $select = "*";
         }
-        $sql = "SELECT $select FROM `{$this->table}` WHERE ";
+        $sql = "SELECT $select FROM {$table} WHERE ";
         if (!is_array($id) && 1 == count($identifier)){
             $sql.= " `{$identifier[0]}`=?";
             $binds[] = $id;
@@ -348,7 +413,7 @@ class Api
         }
         if (is_callable($this->validator)) {
             $func = $this->validator;
-            $err = $func($data);
+            $err = $func($data, null);
             if (!in_array($err, [null, true], true)){
                 return array(null, $err);
             }
@@ -394,7 +459,7 @@ class Api
         }
         if (is_callable($this->validator)) {
             $func = $this->validator;
-            $err = $func($data);
+            $err = $func($data, $id);
             if (!in_array($err, [null, true], true)){
                 return array(null, $err);
             } 
@@ -453,16 +518,7 @@ class Api
     public function post_reverse_transform($record) {
         $data = array();
         foreach ($record as $name => $rmt_value) {
-            if (is_array($this->write_fields)
-                && !in_array($name, $this->write_fields)
-            ){
-                throw new \Exception($name.' is not writable');
-            }
             $field_type = $this->getFieldType($name);
-            if (null === $field_type){
-                throw new \Exception($name.' has no field type');
-                return;
-            }
             if ('time' == $field_type ) {
                 if (preg_match('/^[0-9]{1,}:[0-9]{2}[:0-9{2}]$/', $rmt_value)){
                     $data[$name] = $rmt_value;
@@ -490,7 +546,7 @@ class Api
             elseif ('string' == $field_type) {
                 $data[$name] = null === $rmt_value ? null : $this->filterString($rmt_value);
             }
-            elseif ('float' == $field_type) {
+            elseif ('float' == $field_type  || 'decimal' == $field_type) {
                 $data[$name] = in_array($rmt_value, [null,'',false], true) ? null : floatval($rmt_value);
             }
             elseif ('integer' == $field_type) {
@@ -520,12 +576,8 @@ class Api
      */
     public function pre_transform($record) {
         $data = array();
+        $field_type = null;
         foreach ($record as $name => $val) {
-            if (!('*' == $this->read_fields
-                || in_array($name, $this->read_fields))
-            ){
-                continue;
-            } 
             $field_type = $this->getFieldType($name);
             if (null === $field_type){
                 throw new \Exception($name.' has no field type');
@@ -581,57 +633,28 @@ class Api
     
 
     public function getFieldType($name){
-        foreach ($this->getTableInfo() as $row){
-            if ($row['name'] == $name) {
-                if (0 === strpos($row['type'], 'tinyint(1)')){
-                    return 'boolean';
-                }
-                if (false !== strpos($row['type'], 'int')){
-                    return 'integer';
-                }
-                if (false !== strpos($row['type'], 'decimal')){
-                    return 'float';
-                }
-                if (false !== strpos($row['type'], 'float')){
-                    return 'float';
-                }
-                if (false !== strpos($row['type'], 'datetime')){
-                    return 'datetime';
-                }
-                if (false !== strpos($row['type'], 'date')){
-                    return 'date';
-                }
-                if (false !== strpos($row['type'], 'time')){
-                    return 'time';
-                }
-                if (false !== strpos($row['type'], 'char')){
-                    return 'string';
-                }
-                if (false !== strpos($row['type'], 'text')){
-                    return 'text';
-                }
-                if (false !== strpos($row['type'], 'blob')){
-                    return 'blob';
-                }
-                return 'undefined';
+        if (!is_array($this->fields)){
+            return 'string';
+        }
+        foreach ($this->fields as $field){
+            if ($field['alias'] == $name){
+                return $field['type'];
             }
         }
-
-        return null; //not found
+        return 'string';
     }
 
     /* 
      * returns []primary
      */
     public function getIdentifier(){
-        return $this->table_info_provider->getIdentifier($this->table);
+        return $this->primary;
+    }
+
+    public function setIdentifier($field_name){
+        $this->primary[] = $field_name;
+        return $this;
     }
    
-    /* 
-     * returns []primary
-     */
-    public function getTableInfo(){
-        return $this->table_info_provider->getTableInfo($this->table);
-    }
 
 }

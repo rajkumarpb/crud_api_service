@@ -53,7 +53,41 @@ if (null === $err) {
 }
 
 ```
-#
+
+**Query for Data**
+
+readAction takes one argument, an array of parameters. 
+All queries are ADD, there is no possiblitiy for OR.
+
+$params = [
+    'offset' => 20, // Query OFFSET
+    'limit' => 10, // Query LIMIT, max number of datasets
+    'order' => 'ASC', // ASC or DESC
+    'order_by' => 'fieldname', 
+    'fieldname' => 'exactvalue', // query for rows with exact match
+    'number__gte' => 30,         // query for number greater or equal 30
+    'number2__gt' => 20,         // query for numbere greater or equal 20
+    'number__lt' => 40,          // query for number smaller than 40
+    'number2__lte' => 40,         // query for number2 greater or equal 20
+    'firsname__contains' => 'john',   // query firstname LIKE '%john%'
+    'lastname__contains' => array(   // lastname LIKE '%doe% AND lastname LIKE '%smith%'
+        'doe', 'smith'
+        ),  
+    'address__starts_with' => 'Alpha',  // address LIKE '%Alpha'
+    'zip__in'=>'2000,2001,2002',  // zip IN (2000,2001,2002)
+    'zip__not_in'=>'2000,2001,2002',  // zip NOT IN (2000,2001,2002)
+    ];
+
+**Get the total Count**
+
+Use the second Argument of the readAction to retreive the
+total number of rows with given params.
+
+```
+list($count, $err) = $api->readAction($params, true);
+list($data, $err) = $api->readAction($params);
+```
+
 ### Options
 
 **Table Name**
@@ -63,36 +97,36 @@ Set the table name where the data are
 ```php
 $api->setTableName('table_name');
 ```
-**Read Fields**
 
-Set the names of those fields that should be read 
-from the table in readAction() or readOneAction()
+**Define fields**
 
-```php
-$api->setReadFields('*'); // all, this is the default
-$api->setReadFields(['firstname', 'lastname']); // just two fields
-
-```
-
-**Write Fields**
-
-Set the names of those fields that could be written
-from the table in updateAction() or createAction()
+Default: all fields are available, all fields can be read and
+written (create and update), none is required;
 
 ```php
-$api->setWriteFields('*'); // all, this is the default
-$api->setWriteFields(['firstname', 'lastname']); // just two fields
-```
+$api->addField([
+    'field'=>'title_de',
+    'alias'=>'title',
+    'type' => 'string',
+    'read' => true,
+    'create' => true,
+    'create_required' => true,
+    'update' => false,
+    'update_required' => false,
+])
+->addField([
+    'field'=>'active',
+    'alias'=>'active',
+    'type' => 'boolean',
+    'read' => true,
+    'create' => true,
+    'create_required' => false,
+    'update' => true,
+    'update_required' => false,
+])
+...
+;
 
-**Query Fields**
-
-Set the names of those fields for which can be searched
-in a readAction()
-from the table in updateAction() or createAction()
-
-```php
-$api->setQueryFields('*'); // all, this is the default
-$api->setQueryFields(['firstname', 'lastname']); // just two fields
 ```
 
 **Validator Function**
@@ -100,10 +134,12 @@ $api->setQueryFields(['firstname', 'lastname']); // just two fields
 Set a validator function applied to the data 
 just before they are inserted or updated.
 
-A validator function shall return NULL or an error message
+A validator function shall return NULL or an error message.
+
+For create actions $id is NULL.
 
 ```php
-$api->setValidato(function($data){
+$api->setValidator(function($data, $id){
     if ($condition) {
         return null; // ever
     } else {
@@ -182,20 +218,35 @@ $api = new \Akuehnis\CrudApiService\Api();
 $api->setDbConnector($this->container->get('database_connector'));
 ```
 
+**Join Tables**
 
-**Set your own Table Info service**
+Multiple Tables can be joined together for read operations.
+For write opereations, joins are ignored.
 
-This Service must retreive information from the database table.
-By default, the included MySqlTableInfoProvider is loaded.
-
-You may create your own.
-```php
-$api = new \Akuehnis\CrudApiService\Api();
-$conn = new YourOwnDbConnector();
-$tip  = new YourOwnTableInfoProvider($conn);
-$api->setDbConnector($conn)
-    ->setTableInfoProvider($tip)
+```
+$api->setTable('first_table')
+    ->leftJoin([
+        'table' => 'second_table', 
+        'on' => 'first_table.second_id = second_table.id',
+    ])
+    ->leftJoin([
+        'table' => 'third_table',
+        'on' => 'second_table.rel_id = third_table.id',
+        ])
     ;
+```
+
+Note: If two joined tables have similar field names, one must define
+which of them shall be exposed. Use the addField-function to do that.
+
+```
+$api->addField([
+    'field' => 'first_table.samefield',
+    'alias' => 'samefield',
+    'read' => true,
+    ])
+...
+;
 ```
 
 ### Advanced Functions
