@@ -58,7 +58,7 @@ if (null === $err) {
 
 readAction takes one argument, an array of parameters. 
 All queries are ADD, there is no possiblitiy for OR.
-
+```php
 $params = [
     'offset' => 20, // Query OFFSET
     'limit' => 10, // Query LIMIT, max number of datasets
@@ -77,6 +77,7 @@ $params = [
     'zip__in'=>'2000,2001,2002',  // zip IN (2000,2001,2002)
     'zip__not_in'=>'2000,2001,2002',  // zip NOT IN (2000,2001,2002)
     ];
+```
 
 **Get the total Count**
 
