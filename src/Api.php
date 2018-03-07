@@ -293,6 +293,13 @@ class Api
                         $b = explode(',', $val);
                         $where.= " AND (`$field` IS NULL OR `$field` NOT IN ('".implode("','", $b)."'))";
                         break;
+                    case 'isnull':
+                        if('true' == $val) {
+                            $where.= " AND `$field` IS NULL";
+                        } else {
+                            $where.= " AND `$field` IS NOT NULL";
+                        }
+                        break;
                     default:
                         continue;
                 }

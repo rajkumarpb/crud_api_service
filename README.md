@@ -76,6 +76,8 @@ $params = [
     'address__starts_with' => 'Alpha',  // address LIKE '%Alpha'
     'zip__in'=>'2000,2001,2002',  // zip IN (2000,2001,2002)
     'zip__not_in'=>'2000,2001,2002',  // zip NOT IN (2000,2001,2002)
+    'created_by__isnull'=>'true',  // created_by IS NULL
+    'updated_by__isnull'=>'false',  // updated IS NOT NULL
     ];
 ```
 
