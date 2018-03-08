@@ -410,6 +410,29 @@ class Api
         if (null === $this->table){
             return array(null, 'table undefined');
         }
+        if ('*' == $this->fields){
+            return array(null, 'No fields defined');
+        }
+        // Check if required fields are here
+        $create_keys = array();
+        $create_required_keys = array();
+        foreach ($this->fields as $field){
+            if ($field['create']){
+                $create_keys[] = $field['alias'];
+                if ($field['create_required']){
+                    $create_required_keys[] = $field['alias'];
+                }
+            }
+        }
+        $keys = array_keys($data);
+        $diff = array_diff($keys,$create_keys);
+        if (0 < count($diff)){
+            return array(null, 'Not allowed: '.implode(',',$diff));
+        }
+        $diff = array_diff($create_required_keys, $keys);
+        if (0 < count($diff)){
+            return array(null, 'Required: '.implode(',',$diff));
+        }
         if (is_callable($this->reverse_transformer)) {
             try {
                 $func = $this->reverse_transformer;
