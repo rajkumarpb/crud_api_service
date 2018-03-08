@@ -139,7 +139,7 @@ class Api
             'alias' => '',
             'type' => 'string',
             'read' => true,
-            'create' => true,
+            'create' => false,
             'create_required' => false,
             'update' => true,
             'update_required' => false,
@@ -307,7 +307,7 @@ class Api
         }
         $order_by = isset($query['order_by']) ? $query['order_by'] : '';
         if ('' == $order_by) {
-            $order_by = $this->getIdentifier()[0];
+            $order_by = $this->getIdentifier();
         }
         $order_by = preg_replace('/[^A-Za-z0-9\_\-]/', '', $order_by);
         $order    = isset($query['order']) ? strtoupper($query['order']) :  'ASC';
@@ -362,7 +362,6 @@ class Api
         foreach ($this->left_join as $left_join){
             $table.= ' LEFT JOIN '.$left_join['table'].' ON '.$left_join['on'];
         }
-        $identifier = $this->getIdentifier();
         $binds = array();
         if (is_array($this->fields) 
             && 0 < count($this->fields)
@@ -379,8 +378,15 @@ class Api
             $select = "*";
         }
         $sql = "SELECT $select FROM {$table} WHERE ";
-        if (!is_array($id) && 1 == count($identifier)){
-            $sql.= " `{$identifier[0]}`=?";
+        if (is_array($id)){
+            $sep = '';
+            foreach ($id as $key => $v){
+                $sql.= $sep." `{$key}`=?";
+                $binds[] = $v;
+                $sep = ' AND ';
+            }
+        } else {
+            $sql.= " `{$this->getIdentifier()}`=?";
             $binds[] = $id;
         }
         $data = $this->db_conn->fetchAll($sql, $binds);
@@ -447,6 +453,29 @@ class Api
      */
     public function updateAction($id, $data)
     {
+        if ('*' == $this->fields){
+            return array(null, 'No fields defined');
+        }
+        // Check if required fields are here
+        $update_keys = array();
+        $update_required_keys = array();
+        foreach ($this->fields as $field){
+            if ($field['update']){
+                $update_keys[] = $field['alias'];
+                if ($field['update_required']){
+                    $update_required_keys[] = $field['alias'];
+                }
+            }
+        }
+        $keys = array_keys($data);
+        $diff = array_diff($keys,$update_keys);
+        if (0 < count($diff)){
+            return array(null, 'Not allowed: '.implode(',',$diff));
+        }
+        $diff = array_diff($update_required_keys, $keys);
+        if (0 < count($diff)){
+            return array(null, 'Required: '.implode(',',$diff));
+        }
         if (null === $this->table){
             return array(null, 'table undefined');
         }
@@ -472,9 +501,14 @@ class Api
                 return array(null, $err);
             } 
         }
-        $identifier = $this->getIdentifier();
+        if (is_array($id)){
+            $where = $id;
+        } else {
+            $where = array($this->getIdentifier() => $id);
+        }
+
         try {
-            $this->db_conn->update($this->table, $data, array($identifier[0] => $id));
+            $this->db_conn->update($this->table, $data, $where);
             list($new_data, $err) = $this->readOneAction($id);
             if (null !== $err){
                 return array(null, $err);
@@ -507,8 +541,14 @@ class Api
             }
         }
         try {
-            $this->db_conn->delete($this->table, array(
-                $identifier[0] => $id,));
+            if (is_array($id)){
+                $where = $id;
+            } else {
+                $where = array(
+                    $identifier => $id,
+                );
+            }
+            $this->db_conn->delete($this->table, $where);
             if (is_callable($this->on_after_delete)){
                 $func = $this->on_after_delete;
                 $func($data);
@@ -660,7 +700,7 @@ class Api
     }
 
     public function setIdentifier($field_name){
-        $this->primary[] = $field_name;
+        $this->primary = $field_name;
         return $this;
     }
    
