@@ -161,7 +161,8 @@ outside world sees.
 
 The function argument is one row of data. It
 is applied on readAction() and readOneAction()
-just after reading the data from the database.
+just after reading the data from the database and after 
+Pre-Tranformer was applied.
 
 ```php
 $api->setTransformer(function($data){
@@ -272,3 +273,23 @@ $api->setValidator(function($data) use ($container) {
 });
 
 ```
+
+### Built-In Functions
+
+
+**Pre-Transformer**
+
+The Pre-Transformer converts raw data from the database
+into the expected format. 
+
+* 0/1 transform to true/false
+* floatval(number field)
+* intval(integer field)
+
+
+**Post-Reverse-Transform**
+
+Prepare data for saving to database
+
+* boolean to 1/0
+
