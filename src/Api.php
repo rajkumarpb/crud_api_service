@@ -603,7 +603,7 @@ class Api
             elseif ('boolean' == $field_type) {
                 if ('false' === $rmt_value || false === $rmt_value) {
                     $data[$name] = 0;
-                } elseif ('true' === $rmt_value) {
+                } elseif ('true' === $rmt_value || true === $rmt_value) {
                     $data[$name] = 1;
                 } else {
                     $data[$name] = $rmt_value;
