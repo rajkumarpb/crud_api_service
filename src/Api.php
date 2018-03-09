@@ -411,7 +411,7 @@ class Api
             return array(null, 'table undefined');
         }
         if ('*' == $this->fields){
-            return array(null, 'No fields defined');
+            return array(null, 'Write protected');
         }
         // Check if required fields are here
         $create_keys = array();
@@ -433,6 +433,15 @@ class Api
         if (0 < count($diff)){
             return array(null, 'Required: '.implode(',',$diff));
         }
+
+        if (is_callable($this->validator)) {
+            $func = $this->validator;
+            $err = $func($data, null);
+            if (!in_array($err, [null, true], true)){
+                return array(null, $err);
+            }
+        }
+
         if (is_callable($this->reverse_transformer)) {
             try {
                 $func = $this->reverse_transformer;
@@ -448,13 +457,7 @@ class Api
         } catch (\Exception $e) {
             return array(null, $e->getMessage());
         }
-        if (is_callable($this->validator)) {
-            $func = $this->validator;
-            $err = $func($data, null);
-            if (!in_array($err, [null, true], true)){
-                return array(null, $err);
-            }
-        }
+        
         try {
             $this->db_conn->insert($this->table, $data);
             list($data, $err) = $this->readOneAction($this->db_conn->lastInsertId());
@@ -477,7 +480,10 @@ class Api
     public function updateAction($id, $data)
     {
         if ('*' == $this->fields){
-            return array(null, 'No fields defined');
+            return array(null, 'Write protected');
+        }
+        if (null === $this->table){
+            return array(null, 'table undefined');
         }
         // Check if required fields are here
         $update_keys = array();
@@ -499,8 +505,13 @@ class Api
         if (0 < count($diff)){
             return array(null, 'Required: '.implode(',',$diff));
         }
-        if (null === $this->table){
-            return array(null, 'table undefined');
+
+        if (is_callable($this->validator)) {
+            $func = $this->validator;
+            $err = $func($data, $id);
+            if (!in_array($err, [null, true], true)){
+                return array(null, $err);
+            } 
         }
         if (is_callable($this->reverse_transformer)) {
             try {
@@ -517,13 +528,7 @@ class Api
         } catch (\Exception $e) {
             return array(null, $e->getMessage());
         }
-        if (is_callable($this->validator)) {
-            $func = $this->validator;
-            $err = $func($data, $id);
-            if (!in_array($err, [null, true], true)){
-                return array(null, $err);
-            } 
-        }
+        
         if (is_array($id)){
             $where = $id;
         } else {
