@@ -17,7 +17,11 @@ Simple Example using a Mysql Database
 // index.php
 
 $api = new \Akuehnis\CrudApiService\Api('localhost', 'database_user', 'user_password', 'name_of_the_database');
-$api->setTable('table_name');
+$api->setTable('table_name')
+    ->setIdentifier('id', true)
+    ->setIdentifier('second', false)
+    ;
+    
 
 $id = isset($_GET['id']) ? $_GET['id'] : null;
 
@@ -99,6 +103,23 @@ Set the table name where the data are
 
 ```php
 $api->setTableName('table_name');
+```
+
+**Identifier**
+
+Set the row identifier. The function takes two arguments
+
+* (string)name of the identifier
+* (bool)auto_increment if the identifier is automatically increased
+
+For compound identifiers, multiple fields can be set as 
+identifier (PRIMARY key). However, there must be only one with 
+auto_increment=true.
+
+
+```php
+$api->setIdentifier('primary_id', true);
+$api->setIdentifier('second_id', false);
 ```
 
 **Define fields**

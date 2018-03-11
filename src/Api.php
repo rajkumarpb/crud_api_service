@@ -307,7 +307,7 @@ class Api
         }
         $order_by = isset($query['order_by']) ? $query['order_by'] : '';
         if ('' == $order_by) {
-            $order_by = $this->getIdentifier();
+            $order_by = $this->getFirstIdentifierName();
         }
         $order_by = preg_replace('/[^A-Za-z0-9\_\-]/', '', $order_by);
         $order    = isset($query['order']) ? strtoupper($query['order']) :  'ASC';
@@ -326,6 +326,7 @@ class Api
                 $select = '';
                 $sep = '';
                 foreach ($this->fields as $read_field){
+                    if (!$read_field['read']) continue;
                     $select.= $sep."`".str_replace('.', '`.`', $read_field['field'])."`".
                         " AS `".$read_field['alias']."`";
                     $sep = ',';
@@ -369,6 +370,7 @@ class Api
             $select = '';
             $sep = '';
             foreach ($this->fields as $read_field){
+                if (!$read_field['read']) continue;
                 $select.= $sep.
                     "`".str_replace('.', '`.`', $read_field['field'])."`".
                     " AS `".$read_field['alias']."`";
@@ -386,7 +388,7 @@ class Api
                 $sep = ' AND ';
             }
         } else {
-            $sql.= " `{$this->getIdentifier()}`=?";
+            $sql.= " `{$this->getFirstIdentifierName()}`=?";
             $binds[] = $id;
         }
         $data = $this->db_conn->fetchAll($sql, $binds);
@@ -460,7 +462,17 @@ class Api
         
         try {
             $this->db_conn->insert($this->table, $data);
-            list($data, $err) = $this->readOneAction($this->db_conn->lastInsertId());
+            $id = array();
+           
+            foreach($this->getIdentifier() as $primary){
+                if ($primary['auto_increment']){
+                    $id[$primary['name']] = $this->db_conn->lastInsertId();
+                } else {
+                    // must be present in data
+                    $id[$primary['name']] = $data[$primary['name']];
+                }
+            }
+            list($data, $err) = $this->readOneAction($id);
             if (null !== $err){
                 return array(null, $err);
             }
@@ -532,7 +544,7 @@ class Api
         if (is_array($id)){
             $where = $id;
         } else {
-            $where = array($this->getIdentifier() => $id);
+            $where = array($this->getFirstIdentifierName() => $id);
         }
 
         try {
@@ -559,7 +571,7 @@ class Api
         if (null === $this->table){
             return array(null, 'table undefined');
         }
-        $identifier = $this->getIdentifier();
+        $identifier = $this->getFirstIdentifierName();
         $data = null;
         if (is_callable($this->on_after_delete)){
             // Save the data for the on_after_delete event
@@ -726,9 +738,17 @@ class Api
     public function getIdentifier(){
         return $this->primary;
     }
+    public function getFirstIdentifierName(){
+        $primary = $this->primary[0];
+        return $primary['name'];
+    }
 
-    public function setIdentifier($field_name){
-        $this->primary = $field_name;
+    public function setIdentifier($field_name, $auto_increment = true){
+        $primary = array(
+            'name' => $field_name,
+            'auto_increment' => $auto_increment,
+        );
+        $this->primary[] = $primary;
         return $this;
     }
    
