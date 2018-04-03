@@ -34,7 +34,10 @@ class MySqlDbConnector
         if( false === $sth ) {
             throw new \Exception($this->conn->errorInfo()[2]);
         }
-        $sth->execute($binds);
+        $res = $sth->execute($binds);
+        if (false === $res) {
+            throw new \Exception($sth->errorInfo()[2]);
+        }
         return $sth->fetchColumn();
     }
 
@@ -43,7 +46,10 @@ class MySqlDbConnector
         if( false === $sth ) {
             throw new \Exception($this->conn->errorInfo()[2]);
         }
-        $sth->execute($binds);
+        $res = $sth->execute($binds);
+        if (false === $res) {
+            throw new \Exception($sth->errorInfo()[2]);
+        }
         return $sth->fetchAll(\PDO::FETCH_ASSOC);
     }
 
