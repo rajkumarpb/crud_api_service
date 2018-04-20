@@ -285,6 +285,10 @@ class Api
                         $where.= " AND `$field` IS NOT NULL AND `$field` LIKE '?'";
                         $binds[] = $val.'%';
                         break;
+                     case 'inlist':
+                        $where.= " AND `$field` IS NOT NULL AND FIND_IN_SET(?, `$field`)";
+                        $binds[] = $val;
+                        break;
                      case 'in':
                         $b = explode(',', $val);
                         $where.= " AND `$field` IS NOT NULL AND  `$field` IN ('".implode("','", $b)."')";
