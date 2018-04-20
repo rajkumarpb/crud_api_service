@@ -20,6 +20,9 @@ $api = new \Akuehnis\CrudApiService\Api('localhost', 'database_user', 'user_pass
 $api->setTable('table_name')
     ->setIdentifier('id', true)
     ->setIdentifier('second', false)
+    ->addField(...)
+    ->addField(...)
+    ->setValidator(...)
     ;
     
 
@@ -77,6 +80,7 @@ $params = [
     'lastname__contains' => array(   // lastname LIKE '%doe% AND lastname LIKE '%smith%'
         'doe', 'smith'
         ),  
+    'category_ids__inlist' => 30, // assuming category_ids contains CSV such as 20,30,40 (FIND_IN_SET)
     'address__starts_with' => 'Alpha',  // address LIKE '%Alpha'
     'zip__in'=>'2000,2001,2002',  // zip IN (2000,2001,2002)
     'zip__not_in'=>'2000,2001,2002',  // zip NOT IN (2000,2001,2002)
