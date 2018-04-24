@@ -208,7 +208,7 @@ in the database.
 This function is applied in createAction() and updateAction().
 
 ```php
-$api->setReverseTransformer(function($data){
+$api->setReverseTransformer(function($data, $id){
     // This example replaces the field name id by row_id
     $data['row_id] = $data['id'];
     unset($data['id']);

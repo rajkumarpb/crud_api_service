@@ -9,7 +9,7 @@
  */
 
 namespace Akuehnis\CrudApiService;
-use  Akuehnis\CrudApiService\MySqlDbConnector;
+//use  Akuehnis\CrudApiService\MySqlDbConnector;
 
 class Api
 {
@@ -285,15 +285,15 @@ class Api
                         $where.= " AND `$field` IS NOT NULL AND `$field` LIKE '?'";
                         $binds[] = $val.'%';
                         break;
-                     case 'inlist':
-                        $where.= " AND `$field` IS NOT NULL AND FIND_IN_SET(?, `$field`)";
+                    case 'inlist':
+                        $where.= " AND `$field` IS NOT NULL AND FIND_IN_SET(?, `$field`)" ;
                         $binds[] = $val;
                         break;
-                     case 'in':
+                    case 'in':
                         $b = explode(',', $val);
                         $where.= " AND `$field` IS NOT NULL AND  `$field` IN ('".implode("','", $b)."')";
                         break;
-                     case 'not_in':
+                    case 'not_in':
                         $b = explode(',', $val);
                         $where.= " AND (`$field` IS NULL OR `$field` NOT IN ('".implode("','", $b)."'))";
                         break;
@@ -451,7 +451,7 @@ class Api
         if (is_callable($this->reverse_transformer)) {
             try {
                 $func = $this->reverse_transformer;
-                $data = $func($data);
+                $data = $func($data, null);
             } catch (\Exception $e){
                 return array(null, $e->getMessage());
             }
@@ -532,7 +532,7 @@ class Api
         if (is_callable($this->reverse_transformer)) {
             try {
                 $func = $this->reverse_transformer;
-                $data = $func($data);
+                $data = $func($data, $id);
             } catch (\Exception $e) {
                 return array(null, $e->getMessage());
             }
